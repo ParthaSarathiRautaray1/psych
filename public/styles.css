@@ -26,7 +26,11 @@ body {
   padding: max(16px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
   -webkit-tap-highlight-color: transparent;
   line-height: 1.4;
+  /* Task 4: discourage copying game content — text isn't selectable… */
+  -webkit-user-select: none; -ms-user-select: none; user-select: none;
 }
+/* …but form fields must still accept the caret and typing. */
+input, textarea { -webkit-user-select: text; user-select: text; }
 
 .app { width: 100%; max-width: 620px; margin: auto; display: flex; flex-direction: column; gap: 16px; }
 
@@ -168,7 +172,10 @@ input::placeholder { color: var(--muted); }
 .result-main.bad { color: var(--bad); }
 .result-sub { color: var(--muted); font-size: 0.95rem; margin-top: 2px; }
 .result-sub strong { color: var(--text); }
-.psych-hit { display: flex; align-items: center; justify-content: center; gap: 14px; text-align: left; }
+.psych-hit { display: flex; align-items: center; justify-content: center; gap: 16px; text-align: left; padding: 6px 0; }
+.psych-hit .avatar { box-shadow: 0 0 0 3px var(--bad), 0 6px 18px rgba(0, 0, 0, 0.4); }
+.psych-hit-text .result-main { font-size: 1.5rem; }
+.psych-hit-text .result-sub { font-size: 1.05rem; margin-top: 4px; }
 .i-psyched { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .mini-avatars { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 8px; }
 .mini { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -200,3 +207,18 @@ input::placeholder { color: var(--muted); }
 }
 
 .made-by { text-align: center; padding: 10px 0; color: var(--muted); opacity: 0.65; font-size: 0.85rem; letter-spacing: 0.5px; }
+
+#homeBtn { margin-top: 8px; }
+
+/* ---- focus/tab-switch guard overlay (Task 4) ---- */
+.focus-guard {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(10, 7, 30, 0.94); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.focus-guard[hidden] { display: none; }
+.focus-guard-inner { text-align: center; max-width: 360px; animation: pop 0.2s ease; }
+.focus-guard-inner h2 { font-size: 1.6rem; margin-bottom: 8px; }
+.focus-guard-inner p { color: var(--muted); margin-bottom: 20px; }
+.focus-guard-inner .btn { width: auto; padding: 14px 26px; }
+.focus-emoji { font-size: 3.4rem; margin-bottom: 8px; }

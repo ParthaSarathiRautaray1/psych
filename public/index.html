@@ -141,13 +141,24 @@
         <h2>Final scores</h2>
         <div id="finalBoard"></div>
       </div>
-      <button id="restartBtn" class="btn pink" style="display:none;">Back to lobby 🔁</button>
-      <div id="endWait" class="card center" style="display:none;">
-        <p class="hint">Waiting for the host…</p>
+      <button id="restartBtn" class="btn pink" style="display:none;">Play again 🔁</button>
+      <div id="endWait" class="card center mb" style="display:none;">
+        <p class="hint">Waiting for the host to start a new game…</p>
       </div>
+      <button id="homeBtn" class="btn secondary">🏠 Back to home</button>
     </section>
 
     <footer class="made-by">Made by Partha</footer>
+  </div>
+
+  <!-- Tab-switch / focus-loss warning overlay (Task 4) -->
+  <div id="focusGuard" class="focus-guard" hidden>
+    <div class="focus-guard-inner">
+      <div class="focus-emoji">👀</div>
+      <h2>Eyes on the game!</h2>
+      <p>Leaving the tab during a round isn't allowed.<br/>Tap below to jump back in.</p>
+      <button id="focusBackBtn" class="btn pink">Back to the game</button>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>

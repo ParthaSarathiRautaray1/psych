@@ -7,12 +7,32 @@ let selectedAvatar = null; // data URL or null
 let lastPhase = null;
 let currentCode = "";
 let lobbyPlayerCount = 0;
+let inGame = false;      // true while seated in a room (lobby → reveal)
+let guardActive = false; // true only during live rounds (bluff/guess/reveal)
 
 const screens = {};
 ["home", "lobby", "bluff", "guess", "reveal", "end"].forEach((n) => (screens[n] = $("screen-" + n)));
 function show(name) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
   screens[name].classList.add("active");
+}
+
+/* ---------------- session persistence (Task 2: resume after refresh) ---------------- */
+const SESSION_KEY = "psych_session";
+const PROFILE_KEY = "psych_profile";
+function saveSession(code, pid) { try { localStorage.setItem(SESSION_KEY, JSON.stringify({ code, pid })); } catch (e) {} }
+function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) { return null; } }
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
+function saveProfile() {
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify({ name: $("myName").value.trim(), avatar: selectedAvatar })); } catch (e) {}
+}
+function restoreProfile() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+    if (!p) return;
+    if (p.name) $("myName").value = p.name;
+    if (p.avatar) { selectedAvatar = p.avatar; setAvatarPreview(p.avatar); }
+  } catch (e) {}
 }
 
 /* ---------------- helpers ---------------- */
@@ -36,6 +56,12 @@ function avatar(p, size) {
 }
 
 /* ---------------- avatar upload (client-side resize) ---------------- */
+function setAvatarPreview(dataUrl) {
+  const prev = $("avatarPreview");
+  prev.classList.remove("placeholder");
+  prev.textContent = "";
+  prev.style.backgroundImage = `url('${dataUrl}')`;
+}
 $("avatarInput").addEventListener("change", (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -51,10 +77,7 @@ $("avatarInput").addEventListener("change", (e) => {
       const w = img.width * scale, h = img.height * scale;
       ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
       selectedAvatar = canvas.toDataURL("image/jpeg", 0.7);
-      const prev = $("avatarPreview");
-      prev.classList.remove("placeholder");
-      prev.textContent = "";
-      prev.style.backgroundImage = `url('${selectedAvatar}')`;
+      setAvatarPreview(selectedAvatar);
     };
     img.src = reader.result;
   };
@@ -62,21 +85,34 @@ $("avatarInput").addEventListener("change", (e) => {
 });
 
 /* ---------------- connection status ---------------- */
-socket.on("connect", () => { $("conn").style.display = "none"; });
+socket.on("connect", () => {
+  $("conn").style.display = "none";
+  // If we dropped and reconnected while in a game, re-take our seat.
+  const sess = loadSession();
+  if (sess && sess.code && sess.pid) {
+    socket.emit("resume", sess, (res) => {
+      if (!res || !res.ok) { clearSession(); if (inGame) resetToHome(); }
+    });
+  }
+});
 socket.on("disconnect", () => { $("conn").textContent = "🔴 Disconnected — reconnecting…"; $("conn").style.display = "block"; });
 socket.on("connect_error", () => { $("conn").textContent = "🔴 Can't reach server"; $("conn").style.display = "block"; });
 
 /* ---------------- home: create / join ---------------- */
 $("createBtn").onclick = () => {
   const name = $("myName").value.trim() || "Host";
-  socket.emit("create", { name, avatar: selectedAvatar }, (res) => { if (res && res.ok) show("lobby"); });
+  saveProfile();
+  socket.emit("create", { name, avatar: selectedAvatar }, (res) => {
+    if (res && res.ok) { saveSession(res.code, res.pid); enterGameHistory(); show("lobby"); }
+  });
 };
 $("joinBtn").onclick = () => {
   const name = $("myName").value.trim() || "Player";
   const code = $("joinCode").value.trim().toUpperCase();
   if (!code) { $("joinError").textContent = "Enter a room code."; return; }
+  saveProfile();
   socket.emit("join", { code, name, avatar: selectedAvatar }, (res) => {
-    if (res && res.ok) { $("joinError").textContent = ""; show("lobby"); }
+    if (res && res.ok) { $("joinError").textContent = ""; saveSession(res.code, res.pid); enterGameHistory(); show("lobby"); }
     else $("joinError").textContent = (res && res.error) || "Could not join.";
   });
 };
@@ -100,6 +136,7 @@ function submitBluff() {
 }
 $("nextRoundBtn").onclick = () => socket.emit("next");
 $("restartBtn").onclick = () => socket.emit("restart");
+$("homeBtn").onclick = () => leaveToHome();
 $("copyLink").onclick = () => {
   const link = `${location.origin}/?room=${currentCode}`;
   navigator.clipboard?.writeText(link).then(
@@ -107,6 +144,36 @@ $("copyLink").onclick = () => {
     () => {}
   );
 };
+
+/* ---------------- leaving / home (Task 3: back button) ---------------- */
+function resetToHome() {
+  inGame = false;
+  guardActive = false;
+  hideFocusGuard();
+  selectedDeck = null;
+  currentCode = "";
+  lastPhase = null;
+  show("home");
+}
+function leaveToHome() {
+  socket.emit("leave");
+  clearSession();
+  resetToHome();
+  // Normalise history so we sit on a single "home" entry.
+  try { history.replaceState({ app: "home" }, "", location.pathname); } catch (e) {}
+}
+// Push a history entry when entering a room so the browser Back button lands
+// on our home screen instead of leaving the site.
+function enterGameHistory() {
+  try {
+    if (!history.state || history.state.app !== "game") history.pushState({ app: "game" }, "");
+  } catch (e) {}
+}
+window.addEventListener("popstate", () => {
+  // Any back navigation while seated → go to our home screen, don't leave.
+  if (inGame || loadSession()) leaveToHome();
+});
+try { if (!history.state) history.replaceState({ app: "home" }, ""); } catch (e) {}
 
 /* ---------------- decks ---------------- */
 function renderDecks(decks) {
@@ -133,8 +200,14 @@ function refreshStartBtn() { $("startBtn").disabled = !(selectedDeck && lobbyPla
 /* ---------------- main state renderer ---------------- */
 socket.on("state", (s) => {
   currentCode = s.code;
+  if (s.code && loadSession()) saveSession(s.code, loadSession().pid); // keep code fresh
   const screen = { lobby: "lobby", bluff: "bluff", guess: "guess", reveal: "reveal", end: "end" }[s.phase];
-  if (screen) show(screen);
+  if (screen) { enterGameHistory(); show(screen); }
+  inGame = s.phase !== "end";
+  guardActive = s.phase === "bluff" || s.phase === "guess" || s.phase === "reveal";
+  if (!guardActive) hideFocusGuard();
+  if (s.phase === "end") clearSession(); // game over — safe to close/leave
+
   if (s.phase === "lobby") renderLobby(s);
   if (s.phase === "bluff") renderBluff(s);
   if (s.phase === "guess") renderGuess(s);
@@ -204,7 +277,7 @@ function renderGuess(s) {
 }
 
 function renderReveal(s) {
-  // Personalised "who psych'd whom" banner.
+  // Personalised "who psych'd whom" banner (Task 5).
   const b = $("revealBanner");
   const r = s.myResult || {};
   let html = "";
@@ -212,9 +285,11 @@ function renderReveal(s) {
     html = `<div class="result-main good">✅ You found the REAL answer!</div>`;
   } else if (r.psychedBy) {
     html = `<div class="psych-hit">
-        ${avatar(r.psychedBy, "lg")}
-        <div><div class="result-main bad">😈 You got PSYCH'd!</div>
-        <div class="result-sub">by <strong>${esc(r.psychedBy.name)}</strong></div></div>
+        ${avatar(r.psychedBy, "xl")}
+        <div class="psych-hit-text">
+          <div class="result-main bad">😈 You got Psych'd!</div>
+          <div class="result-sub">by <strong>${esc(r.psychedBy.name)}</strong></div>
+        </div>
       </div>`;
   } else if (!r.answered) {
     html = `<div class="result-main">⏱️ No answer this round</div>`;
@@ -291,3 +366,34 @@ function renderProgress(el, players) {
     el.appendChild(dot);
   });
 }
+
+/* ---------------- Task 4: block close / tab-switch / copy-paste ---------------- */
+// Warn before the page is closed or refreshed mid-game (browser shows a
+// generic "Leave site?" dialog — that's the strongest a web page is allowed).
+window.addEventListener("beforeunload", (e) => {
+  if (!inGame) return;
+  e.preventDefault();
+  e.returnValue = "";
+  return "";
+});
+
+// Discourage tab/app switching during live rounds with a blocking overlay.
+function showFocusGuard() { if (guardActive) $("focusGuard").hidden = false; }
+function hideFocusGuard() { $("focusGuard").hidden = true; }
+$("focusBackBtn").onclick = hideFocusGuard;
+document.addEventListener("visibilitychange", () => { if (document.hidden) showFocusGuard(); else hideFocusGuard(); });
+window.addEventListener("blur", () => { if (guardActive) showFocusGuard(); });
+window.addEventListener("focus", hideFocusGuard);
+
+// Block copying / cutting / pasting game content, and the right-click menu.
+["copy", "cut", "paste", "contextmenu"].forEach((ev) =>
+  document.addEventListener(ev, (e) => {
+    if (e.target && e.target.id === "joinCode") return; // allow pasting a room code
+    e.preventDefault();
+  })
+);
+
+/* ---------------- boot ---------------- */
+restoreProfile();
+// Seat resume after a refresh is handled by the socket "connect" handler above,
+// which fires once the connection is (re)established.
