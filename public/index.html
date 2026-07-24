@@ -15,22 +15,33 @@
       <p>Bluff your friends. Spot the truth. Everyone on their own phone.</p>
     </header>
 
-    <div id="conn" class="pill center" style="align-self:center;">Connecting…</div>
+    <div id="conn" class="conn">Connecting…</div>
 
-    <!-- HOME: create or join -->
+    <!-- HOME -->
     <section id="screen-home" class="screen active">
       <div class="card">
-        <h2>🎮 Create a game</h2>
-        <input id="hostName" type="text" placeholder="Your name…" maxlength="16" autocomplete="off" />
-        <button id="createBtn" class="btn pink mt">Create room 🚀</button>
+        <h2>Your profile</h2>
+        <div class="identity">
+          <label class="avatar-pick" title="Add a photo (optional)">
+            <input type="file" id="avatarInput" accept="image/*" hidden />
+            <span id="avatarPreview" class="avatar xl placeholder">＋</span>
+            <span class="hint">Add photo<br/><small>(optional)</small></span>
+          </label>
+          <div class="identity-name">
+            <input id="myName" type="text" placeholder="Your name…" maxlength="16" autocomplete="off" />
+            <p class="hint">This is how friends see you.</p>
+          </div>
+        </div>
       </div>
+
       <div class="card">
-        <h2>🔑 Join a game</h2>
-        <input id="joinName" type="text" placeholder="Your name…" maxlength="16" autocomplete="off" />
-        <input id="joinCode" type="text" placeholder="Room code (e.g. QK4P)" maxlength="4"
-               autocapitalize="characters" autocomplete="off" class="mt" style="text-transform:uppercase;letter-spacing:4px;font-weight:800;text-align:center;" />
-        <button id="joinBtn" class="btn mt">Join room 👋</button>
-        <p id="joinError" class="hint mt center" style="color:var(--accent);"></p>
+        <h2>Start playing</h2>
+        <button id="createBtn" class="btn pink">Create a room 🚀</button>
+        <div class="divider"><span>or join a room</span></div>
+        <input id="joinCode" type="text" placeholder="Room code" maxlength="4"
+               autocapitalize="characters" autocomplete="off" class="code-input" />
+        <button id="joinBtn" class="btn secondary mt">Join room 👋</button>
+        <p id="joinError" class="hint mt center error"></p>
       </div>
     </section>
 
@@ -39,14 +50,13 @@
       <div class="card center">
         <p class="hint">Room code — share it with your friends</p>
         <div id="roomCode" class="code-big"></div>
-        <button id="copyLink" class="btn secondary mt" style="width:auto;padding:10px 18px;">📋 Copy join link</button>
+        <button id="copyLink" class="btn secondary mt inline">📋 Copy join link</button>
       </div>
       <div class="card">
         <h2>👥 Players <span class="hint">(<span id="lobbyCount">0</span>/8)</span></h2>
         <div id="lobbyPlayers" class="player-list"></div>
       </div>
 
-      <!-- host-only controls -->
       <div id="hostControls">
         <div class="card">
           <h2>🎴 Pick a deck</h2>
@@ -54,14 +64,13 @@
         </div>
         <div class="card">
           <h2>⚙️ Rounds</h2>
-          <input id="roundCount" type="number" min="1" max="12" value="5"
-                 style="width:100%;padding:14px 16px;font-size:1.05rem;border-radius:12px;border:2px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);color:var(--text);" />
+          <input id="roundCount" type="number" min="1" max="12" value="5" class="num-input" />
         </div>
         <button id="startBtn" class="btn pink" disabled>Start game 🚀</button>
       </div>
       <div id="guestWait" class="card center" style="display:none;">
         <p class="big">Waiting for the host to start…</p>
-        <p class="hint mt">Sit tight — the game begins when the host picks a deck.</p>
+        <p class="hint mt">The game begins when the host picks a deck.</p>
       </div>
     </section>
 
@@ -106,8 +115,8 @@
 
     <!-- REVEAL -->
     <section id="screen-reveal" class="screen">
+      <div id="revealBanner" class="card banner"></div>
       <div class="card">
-        <h2 class="center">🎉 Reveal</h2>
         <p class="prompt" id="revealPrompt"></p>
         <div id="revealOptions" class="options mt"></div>
       </div>
@@ -123,8 +132,9 @@
 
     <!-- END -->
     <section id="screen-end" class="screen">
-      <div class="card center">
+      <div class="card center winner-card">
         <h2>🏆 Winner</h2>
+        <div id="winnerAvatar" class="mb"></div>
         <div class="turn-banner"><span class="who" id="winnerName"></span></div>
       </div>
       <div class="card">
@@ -137,7 +147,7 @@
       </div>
     </section>
 
-    <footer class="hint center" style="opacity:0.5;padding:8px 0;">Fan-style Psych! clone · online multiplayer</footer>
+    <footer class="made-by">Made by Partha</footer>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>

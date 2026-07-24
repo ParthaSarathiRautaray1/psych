@@ -3,7 +3,10 @@ const socket = io();
 const $ = (id) => document.getElementById(id);
 
 let selectedDeck = null;
+let selectedAvatar = null; // data URL or null
 let lastPhase = null;
+let currentCode = "";
+let lobbyPlayerCount = 0;
 
 const screens = {};
 ["home", "lobby", "bluff", "guess", "reveal", "end"].forEach((n) => (screens[n] = $("screen-" + n)));
@@ -12,33 +15,77 @@ function show(name) {
   screens[name].classList.add("active");
 }
 
+/* ---------------- helpers ---------------- */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+function hueFor(name) {
+  let h = 0;
+  const s = String(name || "?");
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+// Renders an avatar (photo if present, else coloured initial). size: "", "sm", "lg", "xl".
+function avatar(p, size) {
+  const cls = "avatar" + (size ? " " + size : "");
+  if (p && p.avatar) return `<span class="${cls}" style="background-image:url('${p.avatar}')"></span>`;
+  const initial = esc((p && p.name ? p.name.trim()[0] : "?") || "?").toUpperCase();
+  return `<span class="${cls}" style="background:hsl(${hueFor(p && p.name)},55%,45%)">${initial}</span>`;
+}
+
+/* ---------------- avatar upload (client-side resize) ---------------- */
+$("avatarInput").addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const SIZE = 96;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = SIZE;
+      const ctx = canvas.getContext("2d");
+      const scale = Math.max(SIZE / img.width, SIZE / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+      selectedAvatar = canvas.toDataURL("image/jpeg", 0.7);
+      const prev = $("avatarPreview");
+      prev.classList.remove("placeholder");
+      prev.textContent = "";
+      prev.style.backgroundImage = `url('${selectedAvatar}')`;
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
 /* ---------------- connection status ---------------- */
-socket.on("connect", () => { $("conn").textContent = "🟢 Connected"; $("conn").style.display = "none"; });
-socket.on("disconnect", () => { $("conn").textContent = "🔴 Disconnected — reconnecting…"; $("conn").style.display = "inline-block"; });
-socket.on("connect_error", () => { $("conn").textContent = "🔴 Can't reach server"; $("conn").style.display = "inline-block"; });
+socket.on("connect", () => { $("conn").style.display = "none"; });
+socket.on("disconnect", () => { $("conn").textContent = "🔴 Disconnected — reconnecting…"; $("conn").style.display = "block"; });
+socket.on("connect_error", () => { $("conn").textContent = "🔴 Can't reach server"; $("conn").style.display = "block"; });
 
 /* ---------------- home: create / join ---------------- */
 $("createBtn").onclick = () => {
-  const name = $("hostName").value.trim() || "Host";
-  socket.emit("create", { name }, (res) => { if (res && res.ok) show("lobby"); });
+  const name = $("myName").value.trim() || "Host";
+  socket.emit("create", { name, avatar: selectedAvatar }, (res) => { if (res && res.ok) show("lobby"); });
 };
 $("joinBtn").onclick = () => {
-  const name = $("joinName").value.trim() || "Player";
+  const name = $("myName").value.trim() || "Player";
   const code = $("joinCode").value.trim().toUpperCase();
   if (!code) { $("joinError").textContent = "Enter a room code."; return; }
-  socket.emit("join", { code, name }, (res) => {
+  socket.emit("join", { code, name, avatar: selectedAvatar }, (res) => {
     if (res && res.ok) { $("joinError").textContent = ""; show("lobby"); }
     else $("joinError").textContent = (res && res.error) || "Could not join.";
   });
 };
-$("joinName").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinCode").focus(); });
 $("joinCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinBtn").click(); });
 
-// Prefill code from URL (?room=XXXX) for shared links.
 const urlRoom = new URLSearchParams(location.search).get("room");
 if (urlRoom) $("joinCode").value = urlRoom.toUpperCase();
 
-/* ---------------- lobby actions ---------------- */
+/* ---------------- lobby / game actions ---------------- */
 $("startBtn").onclick = () => {
   if (!selectedDeck) return;
   socket.emit("start", { deckKey: selectedDeck, rounds: Number($("roundCount").value) || 5 });
@@ -61,8 +108,7 @@ $("copyLink").onclick = () => {
   );
 };
 
-/* ---------------- render decks (lobby, host) ---------------- */
-let currentCode = "";
+/* ---------------- decks ---------------- */
 function renderDecks(decks) {
   const grid = $("deckGrid");
   if (grid.dataset.built === "1") { updateDeckSelection(); return; }
@@ -71,7 +117,7 @@ function renderDecks(decks) {
     const el = document.createElement("button");
     el.className = "deck";
     el.dataset.key = d.key;
-    el.innerHTML = `<div class="emoji">${d.emoji}</div><h3>${d.name}</h3><p>${d.blurb}</p>`;
+    el.innerHTML = `<div class="emoji">${d.emoji}</div><h3>${esc(d.name)}</h3><p>${esc(d.blurb)}</p>`;
     el.onclick = () => { selectedDeck = d.key; updateDeckSelection(); refreshStartBtn(); };
     grid.appendChild(el);
   });
@@ -82,23 +128,18 @@ function updateDeckSelection() {
     el.classList.toggle("selected", el.dataset.key === selectedDeck)
   );
 }
-let lobbyPlayerCount = 0;
-function refreshStartBtn() {
-  $("startBtn").disabled = !(selectedDeck && lobbyPlayerCount >= 2);
-}
+function refreshStartBtn() { $("startBtn").disabled = !(selectedDeck && lobbyPlayerCount >= 2); }
 
 /* ---------------- main state renderer ---------------- */
 socket.on("state", (s) => {
   currentCode = s.code;
-  const phaseScreen = { lobby: "lobby", bluff: "bluff", guess: "guess", reveal: "reveal", end: "end" }[s.phase];
-  if (phaseScreen) show(phaseScreen);
-
+  const screen = { lobby: "lobby", bluff: "bluff", guess: "guess", reveal: "reveal", end: "end" }[s.phase];
+  if (screen) show(screen);
   if (s.phase === "lobby") renderLobby(s);
   if (s.phase === "bluff") renderBluff(s);
   if (s.phase === "guess") renderGuess(s);
   if (s.phase === "reveal") renderReveal(s);
   if (s.phase === "end") renderEnd(s);
-
   lastPhase = s.phase;
 });
 
@@ -112,8 +153,9 @@ function renderLobby(s) {
   s.players.forEach((p) => {
     const chip = document.createElement("div");
     chip.className = "player-chip";
-    chip.innerHTML = `<span>${p.name}${p.isHost ? " 👑" : ""}</span>
-      <span class="status">${p.connected ? "ready" : "away"}</span>`;
+    chip.innerHTML = `<span class="who-line">${avatar(p, "sm")}
+      <span class="pname">${esc(p.name)}${p.isHost ? " 👑" : ""}</span></span>
+      <span class="status ${p.connected ? "" : "away"}">${p.connected ? "ready" : "away"}</span>`;
     list.appendChild(chip);
   });
 
@@ -135,7 +177,7 @@ function renderBluff(s) {
   const waiting = s.mySubmitted;
   $("bluffForm").style.display = waiting ? "none" : "";
   $("bluffWait").style.display = waiting ? "" : "none";
-  if (waiting) renderProgress($("bluffProgress"), s.players.map((p) => p.submitted || !p.connected));
+  if (waiting) renderProgress($("bluffProgress"), s.players);
   if (!waiting && lastPhase !== "bluff") $("bluffInput").focus();
 }
 
@@ -145,33 +187,57 @@ function renderGuess(s) {
   const waiting = s.myGuessed;
   $("guessForm").style.display = waiting ? "none" : "";
   $("guessWait").style.display = waiting ? "" : "none";
-
   if (!waiting) {
     const box = $("guessOptions");
     box.innerHTML = "";
     s.options.forEach((opt) => {
       const btn = document.createElement("button");
       btn.className = "option" + (opt.mine ? " disabled" : "");
-      btn.innerHTML = opt.text + (opt.mine ? `<span class="tag">your bluff — can't pick this</span>` : "");
+      btn.innerHTML = esc(opt.text) + (opt.mine ? `<span class="tag">your bluff — can't pick this</span>` : "");
       if (opt.mine) btn.disabled = true;
       else btn.onclick = () => socket.emit("guess", { optionIndex: opt.i });
       box.appendChild(btn);
     });
   } else {
-    renderProgress($("guessProgress"), s.players.map((p) => p.submitted || !p.connected));
+    renderProgress($("guessProgress"), s.players);
   }
 }
 
 function renderReveal(s) {
+  // Personalised "who psych'd whom" banner.
+  const b = $("revealBanner");
+  const r = s.myResult || {};
+  let html = "";
+  if (r.gotTruth) {
+    html = `<div class="result-main good">✅ You found the REAL answer!</div>`;
+  } else if (r.psychedBy) {
+    html = `<div class="psych-hit">
+        ${avatar(r.psychedBy, "lg")}
+        <div><div class="result-main bad">😈 You got PSYCH'd!</div>
+        <div class="result-sub">by <strong>${esc(r.psychedBy.name)}</strong></div></div>
+      </div>`;
+  } else if (!r.answered) {
+    html = `<div class="result-main">⏱️ No answer this round</div>`;
+  } else {
+    html = `<div class="result-main">🤷 Nobody's answer was the truth</div>`;
+  }
+  if (r.iPsyched && r.iPsyched.length) {
+    html += `<div class="i-psyched"><span class="result-sub">🃏 You Psych'd:</span>
+      <div class="mini-avatars">${r.iPsyched.map((p) => `<span class="mini">${avatar(p, "sm")}<em>${esc(p.name)}</em></span>`).join("")}</div></div>`;
+  }
+  b.innerHTML = html;
+
   $("revealPrompt").textContent = s.prompt;
   const box = $("revealOptions");
   box.innerHTML = "";
   s.reveal.forEach((opt) => {
     const el = document.createElement("div");
     el.className = "option " + (opt.isReal ? "correct" : "wrong");
-    const tag = opt.isReal ? "✅ THE REAL ANSWER" : `🃏 bluff by ${opt.author}`;
-    const votedBy = opt.voters.length ? ` · picked by ${opt.voters.join(", ")}` : " · nobody picked this";
-    el.innerHTML = `${opt.text}<span class="tag">${tag}${votedBy}</span>`;
+    const tag = opt.isReal
+      ? `<span class="author">✅ THE REAL ANSWER</span>`
+      : `<span class="author">${avatar({ name: opt.author, avatar: opt.authorAvatar }, "sm")} bluff by ${esc(opt.author)}</span>`;
+    const votedBy = opt.voters.length ? ` · picked by ${esc(opt.voters.join(", "))}` : " · nobody picked this";
+    el.innerHTML = `${esc(opt.text)}<span class="tag">${tag}${votedBy}</span>`;
     box.appendChild(el);
   });
 
@@ -180,7 +246,7 @@ function renderReveal(s) {
   s.gains.forEach((g) => {
     const row = document.createElement("div");
     row.className = "score-row";
-    row.innerHTML = `<span class="name">${g.name}</span>
+    row.innerHTML = `<span class="who-line">${avatar(g, "sm")}<span class="name">${esc(g.name)}</span></span>
       <span class="pts">${g.score}${g.gain ? `<span class="gained"> +${g.gain}</span>` : ""}</span>`;
     gains.appendChild(row);
   });
@@ -197,25 +263,31 @@ function renderReveal(s) {
 }
 
 function renderEnd(s) {
-  $("winnerName").textContent = s.finalBoard[0] ? s.finalBoard[0].name : "—";
+  const winner = s.finalBoard[0];
+  $("winnerName").textContent = winner ? winner.name : "—";
+  $("winnerAvatar").innerHTML = winner ? avatar(winner, "xl") : "";
   const board = $("finalBoard");
   board.innerHTML = "";
   s.finalBoard.forEach((p, i) => {
     const row = document.createElement("div");
     row.className = "score-row" + (i === 0 ? " lead" : "");
     const medal = ["🥇", "🥈", "🥉"][i] || `${i + 1}.`;
-    row.innerHTML = `<span class="rank">${medal}</span><span class="name">${p.name}</span><span class="pts">${p.score}</span>`;
+    row.innerHTML = `<span class="rank">${medal}</span>
+      <span class="who-line">${avatar(p, "sm")}<span class="name">${esc(p.name)}</span></span>
+      <span class="pts">${p.score}</span>`;
     board.appendChild(row);
   });
   $("restartBtn").style.display = s.isHost ? "" : "none";
   $("endWait").style.display = s.isHost ? "none" : "";
 }
 
-function renderProgress(el, doneFlags) {
+function renderProgress(el, players) {
   el.innerHTML = "";
-  doneFlags.forEach((done) => {
-    const dot = document.createElement("div");
-    dot.className = "dot" + (done ? " done" : "");
+  players.forEach((p) => {
+    const dot = document.createElement("span");
+    const done = p.submitted || !p.connected;
+    dot.className = "pdot" + (done ? " done" : "");
+    dot.innerHTML = avatar(p, "sm") + (done ? `<span class="check">✓</span>` : "");
     el.appendChild(dot);
   });
 }
