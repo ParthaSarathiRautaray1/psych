@@ -1,0 +1,202 @@
+:root {
+  --bg: #17123a;
+  --bg2: #241a5c;
+  --card: #2c2168;
+  --card2: #372a80;
+  --accent: #ff4d8d;
+  --accent2: #ffd23f;
+  --good: #3ddc97;
+  --text: #f4f1ff;
+  --muted: #b6ace6;
+  --radius: 18px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at 20% 10%, var(--bg2), var(--bg) 60%);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ---- Header ---- */
+.brand {
+  text-align: center;
+  padding: 8px 0 4px;
+}
+.brand h1 {
+  font-size: clamp(2.4rem, 12vw, 4rem);
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 24px rgba(255, 77, 141, 0.35);
+  line-height: 1;
+}
+.brand p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+
+/* ---- Screens ---- */
+.screen { display: none; flex-direction: column; gap: 16px; animation: pop 0.25s ease; }
+.screen.active { display: flex; }
+@keyframes pop { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.card {
+  background: linear-gradient(160deg, var(--card2), var(--card));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+h2 { font-size: 1.35rem; margin-bottom: 12px; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 15px 18px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1140;
+  background: linear-gradient(90deg, var(--accent2), #ffb03f);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease;
+  touch-action: manipulation;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { filter: grayscale(0.6) brightness(0.7); cursor: not-allowed; }
+.btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-weight: 600;
+}
+.btn.pink { background: linear-gradient(90deg, var(--accent), #ff7eb0); color: #fff; }
+
+/* ---- Inputs ---- */
+input[type="text"] {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 1.05rem;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  outline: none;
+}
+input[type="text"]:focus { border-color: var(--accent2); }
+input::placeholder { color: var(--muted); }
+
+/* ---- Players ---- */
+.player-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.player-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.player-chip {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 600;
+}
+.player-chip button {
+  background: none; border: none; color: var(--accent); font-size: 1.3rem;
+  cursor: pointer; line-height: 1;
+}
+
+/* ---- Deck picker ---- */
+.deck-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.deck {
+  text-align: left; cursor: pointer;
+  background: linear-gradient(160deg, var(--card2), var(--card));
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius); padding: 16px;
+  transition: border-color 0.15s ease, transform 0.08s ease;
+}
+.deck:active { transform: scale(0.98); }
+.deck.selected { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.25); }
+.deck .emoji { font-size: 2rem; }
+.deck h3 { margin: 6px 0 4px; font-size: 1.1rem; }
+.deck p { color: var(--muted); font-size: 0.82rem; }
+
+/* ---- Round / turn ---- */
+.turn-banner {
+  text-align: center; padding: 8px 0;
+}
+.turn-banner .who {
+  font-size: 1.6rem; font-weight: 800; color: var(--accent2);
+}
+.prompt {
+  font-size: clamp(1.2rem, 5vw, 1.6rem);
+  font-weight: 700; line-height: 1.35; text-align: center;
+  padding: 8px 4px;
+}
+.pill {
+  display: inline-block; padding: 4px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1); font-size: 0.8rem;
+  color: var(--muted); margin-bottom: 6px;
+}
+
+/* ---- Answer options ---- */
+.options { display: flex; flex-direction: column; gap: 10px; }
+.option {
+  text-align: left; width: 100%; padding: 15px 16px;
+  font-size: 1.02rem; font-weight: 600; color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px; cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, transform 0.08s;
+}
+.option:active { transform: scale(0.99); }
+.option.correct { border-color: var(--good); background: rgba(61, 220, 151, 0.18); }
+.option.wrong { border-color: var(--accent); background: rgba(255, 77, 141, 0.15); }
+.option.disabled { opacity: 0.5; cursor: not-allowed; }
+.option .tag {
+  display: block; font-size: 0.78rem; color: var(--muted); margin-top: 4px; font-weight: 500;
+}
+
+/* ---- Scoreboard ---- */
+.score-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-radius: 12px; margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.score-row.lead { background: linear-gradient(90deg, rgba(255,210,63,0.25), rgba(255,77,141,0.15)); }
+.score-row .rank { font-size: 1.1rem; font-weight: 800; width: 34px; }
+.score-row .name { flex: 1; font-weight: 600; }
+.score-row .pts { font-weight: 800; color: var(--accent2); }
+
+.gained { color: var(--good); font-size: 0.85rem; }
+
+.center { text-align: center; }
+.mt { margin-top: 10px; }
+.row { display: flex; gap: 10px; }
+.row .btn { flex: 1; }
+
+.privacy {
+  min-height: 40vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 14px;
+}
+.privacy .big { font-size: 1.4rem; font-weight: 800; }

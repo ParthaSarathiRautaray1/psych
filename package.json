@@ -1,0 +1,14 @@
+{
+  "name": "psych-party-game",
+  "version": "1.0.0",
+  "description": "Psych! party bluffing game — online multiplayer, each player on their own phone.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

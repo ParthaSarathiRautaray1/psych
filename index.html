@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#17123a" />
+  <title>Psych! — Party Bluffing Game</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+</head>
+<body>
+  <div class="app">
+    <header class="brand">
+      <h1>PSYCH!</h1>
+      <p>Bluff your friends. Spot the truth. Pass &amp; play on one device.</p>
+    </header>
+
+    <!-- SETUP -->
+    <section id="screen-setup" class="screen active">
+      <div class="card">
+        <h2>👥 Players <span class="hint">(<span id="playerCount">0</span>/8)</span></h2>
+        <div class="player-row">
+          <input id="playerName" type="text" placeholder="Enter a name…" maxlength="16" autocomplete="off" />
+          <button id="addPlayerBtn" class="btn secondary" style="width:auto;padding-left:22px;padding-right:22px;">Add</button>
+        </div>
+        <div id="playerList" class="player-list"></div>
+        <p class="hint">Add at least 2 players (up to 8).</p>
+      </div>
+
+      <div class="card">
+        <h2>🎴 Pick a deck</h2>
+        <div id="deckGrid" class="deck-grid"></div>
+      </div>
+
+      <div class="card">
+        <h2>⚙️ Rounds</h2>
+        <div class="row">
+          <input id="roundCount" type="number" min="1" max="12" value="5"
+                 style="width:100%;padding:14px 16px;font-size:1.05rem;border-radius:12px;border:2px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);color:var(--text);" />
+        </div>
+        <p class="hint mt">How many questions this game (max = deck size).</p>
+      </div>
+
+      <button id="startBtn" class="btn pink" disabled>Start game 🚀</button>
+    </section>
+
+    <!-- PASS DEVICE -->
+    <section id="screen-pass" class="screen">
+      <div class="card privacy">
+        <div class="pill">🔒 Private — pass the device</div>
+        <div class="big">Give the device to</div>
+        <div class="turn-banner"><span class="who" id="passName"></span></div>
+        <div class="hint" id="passPhase"></div>
+        <button id="passBtn" class="btn mt">I'm ready 👀</button>
+      </div>
+    </section>
+
+    <!-- BLUFF -->
+    <section id="screen-bluff" class="screen">
+      <div class="card">
+        <div class="center">
+          <span class="pill" id="bluffDeck"></span>
+          <span class="pill" id="bluffRound"></span>
+        </div>
+        <p class="prompt" id="bluffPrompt"></p>
+      </div>
+      <div class="card">
+        <div class="turn-banner"><span class="who" id="bluffWho"></span>, write a convincing fake answer 🃏</div>
+        <input id="bluffInput" type="text" placeholder="Your bluff…" maxlength="80" autocomplete="off" />
+        <button id="submitBluffBtn" class="btn mt">Lock in bluff 🔒</button>
+        <p class="hint mt center">Make it believable so others pick it — you score when they do.</p>
+      </div>
+    </section>
+
+    <!-- GUESS -->
+    <section id="screen-guess" class="screen">
+      <div class="card">
+        <div class="center"><span class="pill" id="guessRound"></span></div>
+        <p class="prompt" id="guessPrompt"></p>
+      </div>
+      <div class="card">
+        <div class="turn-banner"><span class="who" id="guessWho"></span>, which one is the REAL answer? 🎯</div>
+        <div id="guessOptions" class="options mt"></div>
+      </div>
+    </section>
+
+    <!-- REVEAL -->
+    <section id="screen-reveal" class="screen">
+      <div class="card">
+        <h2 class="center">🎉 Reveal</h2>
+        <p class="prompt" id="revealPrompt"></p>
+        <div id="revealOptions" class="options mt"></div>
+      </div>
+      <div class="card">
+        <h2>📊 Scores</h2>
+        <div id="revealGains"></div>
+      </div>
+      <button id="nextRoundBtn" class="btn pink">Next round →</button>
+    </section>
+
+    <!-- END -->
+    <section id="screen-end" class="screen">
+      <div class="card center">
+        <h2>🏆 Winner</h2>
+        <div class="turn-banner"><span class="who" id="winnerName"></span></div>
+      </div>
+      <div class="card">
+        <h2>Final scores</h2>
+        <div id="finalBoard"></div>
+      </div>
+      <div class="row">
+        <button id="playAgainSame" class="btn">Rematch 🔁</button>
+        <button id="playAgainNew" class="btn secondary">New setup ⚙️</button>
+      </div>
+    </section>
+
+    <footer class="hint center" style="opacity:0.5;padding:8px 0;">Made for fun · fan-style Psych! clone</footer>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
